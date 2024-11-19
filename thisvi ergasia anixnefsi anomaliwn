@@ -1,0 +1,49 @@
+#εγκατάσταση πακέτου PyOD
+!pip install pyod
+
+#εισαγωγή βιβλιοθηκών
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from pyod.models.ecod import ECOD
+import matplotlib.pyplot as plt
+
+#εισαγωγή του συνόλου δεδομένων
+network_data = pd.read_csv('https://raw.githubusercontent.com/kdemertzis/EKPA/main/Data/network_traffic_data.csv', delimiter=',')
+
+#εξαγωγή χαρακτηριστικών (ανεξάρτητων μεταβλητών) για την αναγνώριση ανωμαλιών
+features = ['src_port', 'dest_port', 'packet_size', 'num_packets', 'flow_duration', 'bytes_transferred', 'packet_rate']
+X = network_data[features].values
+
+#κλιμάκωση δεδομένων
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+#χρήση αλγορίθμου Isolation Forest
+model = ECOD()
+model.fit(X_scaled)
+
+#πρόβλεψη βαθμού ανωμαλίας (anomaly score)
+anomaly_scores = model.decision_function(X_scaled)
+
+#προσθήκη βαθμού ανωμαλίας (anomaly score) στο σύνολο δεδομένων
+network_data['anomaly_score'] = anomaly_scores
+
+#οπτικοποίηση αποτελεσμάτων
+colors = ['blue' if score <= model.threshold_ else 'red' for score in anomaly_scores]
+plt.scatter(network_data.index, anomaly_scores, c=colors, label='Anomaly score')
+plt.axhline(y=model.threshold_, color='black', linestyle='--', label='Threshold')
+plt.xlabel('Sample Index')
+plt.ylabel('Anomaly Score')
+plt.legend()
+
+#τύπωση των τιμών που εντοπίσθηκαν ως ανωμαλίες
+anomalies = network_data[network_data['anomaly_score'] > model.threshold_]
+print("Detected Anomalies:")
+print(anomalies)
+
+
+
+
+
+
+
